@@ -1,0 +1,21 @@
+services:
+  translategemma-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: translategemma-ui
+    restart: unless-stopped
+    ports:
+      - "3333:3000"
+    environment:
+      - NODE_ENV=production
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - DEFAULT_MODEL=translategemma:27b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
