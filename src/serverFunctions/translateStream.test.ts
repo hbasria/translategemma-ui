@@ -105,8 +105,15 @@ describe("translateStream handler", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls Ollama API with stream: true and returns a Response", async () => {
-    const ndjsonBody = '{"response":"Hallo","done":false}\n{"response":"","done":true}\n';
+  it("calls OpenAI-compatible API with stream: true and returns NDJSON", async () => {
+    const sseBody = [
+      'data: {"model":"translategemma:27b","choices":[{"delta":{"content":"Hallo"}}]}',
+      "",
+      'data: {"model":"translategemma:27b","choices":[{"delta":{"content":" Welt"}}],"usage":{"completion_tokens":2}}',
+      "",
+      "data: [DONE]",
+      "",
+    ].join("\n");
 
     vi.stubGlobal(
       "fetch",
@@ -114,7 +121,7 @@ describe("translateStream handler", () => {
         ok: true,
         body: new ReadableStream({
           start(controller) {
-            controller.enqueue(new TextEncoder().encode(ndjsonBody));
+            controller.enqueue(new TextEncoder().encode(sseBody));
             controller.close();
           },
         }),
@@ -128,12 +135,21 @@ describe("translateStream handler", () => {
     expect(result).toBeInstanceOf(Response);
     expect(result.headers.get("Content-Type")).toBe("application/x-ndjson");
 
+    const resultText = await result.text();
+    expect(resultText).toContain('{"response":"Hallo","done":false,"model":"translategemma:27b"}');
+    expect(resultText).toContain('{"response":" Welt","done":false,"model":"translategemma:27b"}');
+    expect(resultText).toContain(
+      '{"response":"","done":true,"model":"translategemma:27b","eval_count":2}'
+    );
+
     // Verify fetch was called with stream: true
     const [url, options] = (fetch as Mock).mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:11434/api/generate");
+    expect(url).toBe("http://localhost:11434/v1/chat/completions");
     const body = JSON.parse(options.body as string) as Record<string, unknown>;
     expect(body["stream"]).toBe(true);
     expect(body["model"]).toBe("translategemma:27b");
+    const messages = body["messages"] as Array<Record<string, unknown>>;
+    expect(messages[0]?.["role"]).toBe("user");
   });
 
   it("throws on non-200 API response", async () => {
@@ -150,7 +166,47 @@ describe("translateStream handler", () => {
       capturedHandler({
         data: { text: "Hello", sourceLanguage: "en", targetLanguage: "de_DE" },
       })
-    ).rejects.toThrow("Ollama API error: 500 - Internal Server Error");
+    ).rejects.toThrow("OpenAI API error: 500 - Internal Server Error");
+  });
+
+  it("retries with /api/v1/chat/completions when /v1 returns 405", async () => {
+    const sseBody = ['data: {"choices":[{"delta":{"content":"ok"}}]}', "", "data: [DONE]", ""].join(
+      "\n"
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 405,
+          text: () => Promise.resolve('{"detail":"Method Not Allowed"}'),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(sseBody));
+              controller.close();
+            },
+          }),
+        })
+    );
+
+    const result = (await capturedHandler({
+      data: { text: "Hello", sourceLanguage: "en", targetLanguage: "de_DE" },
+    })) as Response;
+
+    expect((fetch as Mock).mock.calls).toHaveLength(2);
+    expect(((fetch as Mock).mock.calls[0] as [string])[0]).toBe(
+      "http://localhost:11434/v1/chat/completions"
+    );
+    expect(((fetch as Mock).mock.calls[1] as [string])[0]).toBe(
+      "http://localhost:11434/api/v1/chat/completions"
+    );
+
+    expect(result).toBeInstanceOf(Response);
   });
 
   it("uses custom model when provided", async () => {

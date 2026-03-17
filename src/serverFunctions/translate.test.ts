@@ -138,14 +138,11 @@ describe("translate handler", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls Ollama API and returns translation", async () => {
+  it("calls OpenAI-compatible API and returns translation", async () => {
     const mockResponse = {
       model: "translategemma:27b",
-      response: "  Hallo Welt  ",
-      done: true,
-      total_duration: 5000000000,
-      eval_count: 10,
-      eval_duration: 3000000000,
+      choices: [{ message: { content: "  Hallo Welt  " } }],
+      usage: { completion_tokens: 10 },
     };
 
     vi.stubGlobal(
@@ -164,25 +161,27 @@ describe("translate handler", () => {
       translation: "Hallo Welt",
       model: "translategemma:27b",
       stats: {
-        totalDuration: 5000000000,
+        totalDuration: undefined,
         evalCount: 10,
-        evalDuration: 3000000000,
+        evalDuration: undefined,
       },
     });
 
     // Verify fetch was called with correct URL and body
     expect(fetch).toHaveBeenCalledOnce();
     const [url, options] = (fetch as Mock).mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:11434/api/generate");
+    expect(url).toBe("http://localhost:11434/v1/chat/completions");
     expect(options.method).toBe("POST");
     expect(options.headers).toEqual({ "Content-Type": "application/json" });
 
     const body = JSON.parse(options.body as string) as Record<string, unknown>;
     expect(body["model"]).toBe("translategemma:27b");
     expect(body["stream"]).toBe(false);
-    expect((body["options"] as Record<string, unknown>)["temperature"]).toBe(0.1);
-    expect((body["options"] as Record<string, unknown>)["num_predict"]).toBe(4096);
-    expect(body["prompt"]).toContain("Hello World");
+    expect(body["temperature"]).toBe(0.1);
+    expect(body["max_tokens"]).toBe(4096);
+    const messages = body["messages"] as Array<Record<string, unknown>>;
+    expect(messages[0]?.["role"]).toBe("user");
+    expect(messages[0]?.["content"]).toContain("Hello World");
   });
 
   it("uses custom model when provided", async () => {
@@ -193,8 +192,7 @@ describe("translate handler", () => {
         json: () =>
           Promise.resolve({
             model: "custom-model",
-            response: "translated",
-            done: true,
+            choices: [{ message: { content: "translated" } }],
           }),
       })
     );
@@ -228,7 +226,50 @@ describe("translate handler", () => {
       capturedHandler({
         data: { text: "Hello", sourceLanguage: "en", targetLanguage: "de_DE" },
       })
-    ).rejects.toThrow("Ollama API error: 500 - Internal Server Error");
+    ).rejects.toThrow("OpenAI API error: 500 - Internal Server Error");
+  });
+
+  it("retries with /api/v1/chat/completions when /v1 returns 405", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 405,
+          text: () => Promise.resolve('{"detail":"Method Not Allowed"}'),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              model: "translategemma:27b",
+              choices: [{ message: { content: "translated" } }],
+            }),
+        })
+    );
+
+    const result = await capturedHandler({
+      data: { text: "Hello", sourceLanguage: "en", targetLanguage: "de_DE" },
+    });
+
+    expect((fetch as Mock).mock.calls).toHaveLength(2);
+    expect(((fetch as Mock).mock.calls[0] as [string])[0]).toBe(
+      "http://localhost:11434/v1/chat/completions"
+    );
+    expect(((fetch as Mock).mock.calls[1] as [string])[0]).toBe(
+      "http://localhost:11434/api/v1/chat/completions"
+    );
+
+    expect(result).toEqual({
+      translation: "translated",
+      model: "translategemma:27b",
+      stats: {
+        totalDuration: undefined,
+        evalCount: undefined,
+        evalDuration: undefined,
+      },
+    });
   });
 
   it("throws on network error", async () => {
@@ -249,8 +290,7 @@ describe("translate handler", () => {
         json: () =>
           Promise.resolve({
             model: "translategemma:27b",
-            response: "result",
-            done: true,
+            choices: [{ message: { content: "result" } }],
           }),
       })
     );
@@ -271,8 +311,7 @@ describe("translate handler", () => {
         json: () =>
           Promise.resolve({
             model: "translategemma:27b",
-            response: "translated text",
-            done: true,
+            choices: [{ message: { content: "translated text" } }],
           }),
       })
     );
@@ -300,8 +339,7 @@ describe("translate handler", () => {
         json: () =>
           Promise.resolve({
             model: "translategemma:27b",
-            response: "\n  translated text  \n",
-            done: true,
+            choices: [{ message: { content: "\n  translated text  \n" } }],
           }),
       })
     );

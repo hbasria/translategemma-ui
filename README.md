@@ -12,7 +12,7 @@ Web interface for [TranslateGemma](https://blog.google/innovation-and-ai/technol
 
 - **55 languages** — searchable language selector with recent language pills
 - **Auto-translate** — starts translating as you type, no button needed
-- **Local inference** — no data leaves your machine, powered by [Ollama](https://ollama.ai)
+- **Local inference** — no data leaves your machine, powered by OpenWebUI + Ollama
 - **Remembers preferences** — last used language pair and recents restored on reload
 - **Swap languages** — flip source and target with one click
 - **Translation stats** — shows duration and token count after each translation
@@ -32,7 +32,10 @@ services:
     ports:
       - 3000:3000
     environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
+      - LLM_PROVIDER=openai
+      - OPENAI_BASE_URL=http://host.docker.internal:8080/api
+      - OPENAI_API_KEY=
+      - DEFAULT_MODEL=translategemma:27b
     extra_hosts:
       - "host.docker.internal:host-gateway"
 ```
@@ -41,7 +44,7 @@ Access the UI at `http://localhost:3000`
 
 ## Requirements
 
-[Ollama](https://ollama.ai) running with a TranslateGemma model:
+OpenWebUI running with Ollama connected and a TranslateGemma model available:
 
 ```bash
 ollama pull translategemma:27b   # best quality (~16GB)
@@ -53,7 +56,11 @@ ollama pull translategemma:4b    # fastest (~2.5GB)
 
 | Variable        | Default                  | Description                          |
 | --------------- | ------------------------ | ------------------------------------ |
-| `OLLAMA_URL`    | `http://localhost:11434` | Ollama API endpoint                  |
+| `LLM_PROVIDER` | `openai` | Provider mode: `openai` (OpenAI-compatible) or `ollama` |
+| `OPENAI_BASE_URL` | `http://localhost:8080/api` | OpenAI-compatible base URL (for OpenWebUI use `/api`) |
+| `OPENAI_CHAT_COMPLETION_PATH` | _(auto)_ | Optional path override for providers with custom chat path |
+| `OPENAI_API_KEY` | _(empty)_ | Optional bearer token for protected OpenAI-compatible endpoints |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API URL (used when `LLM_PROVIDER=ollama`) |
 | `DEFAULT_MODEL` | `translategemma:27b`     | Model to use (`27b`, `12b`, or `4b`) |
 | `PORT`          | `3000`                   | Server port                          |
 | `HOST`          | `0.0.0.0`                | Server host                          |
