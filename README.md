@@ -56,8 +56,8 @@ ollama pull translategemma:4b    # fastest (~2.5GB)
 
 | Variable                        | Default                     | Description                                                              |
 | ------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
-| `LLM_PROVIDER`                  | `openai`                    | Provider mode: `openai` (OpenAI-compatible) or `ollama`                  |
-| `OPENAI_BASE_URL`               | `http://localhost:8080`     | OpenAI-compatible base URL (for OpenWebUI use `http://localhost:8080/api`) |
+| `LLM_PROVIDER`                  | `ollama`                    | Provider mode: `openai` (OpenAI-compatible) or `ollama`                  |
+| `OPENAI_BASE_URL`               | `OLLAMA_URL` fallback       | OpenAI-compatible base URL (for OpenWebUI use `http://localhost:8080/api`) |
 | `OPENAI_CHAT_COMPLETION_PATH`   | _(auto)_                    | Optional path override for providers with custom chat path               |
 | `OPENAI_API_KEY`                | _(empty)_                   | Optional bearer token for protected OpenAI-compatible endpoints          |
 | `OLLAMA_URL`                    | `http://localhost:11434`    | Ollama API URL (used when `LLM_PROVIDER=ollama`)                         |
