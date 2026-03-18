@@ -1,7 +1,7 @@
 export type LlmProvider = "ollama" | "openai";
 
 export const LLM_PROVIDER: LlmProvider =
-  process.env["LLM_PROVIDER"]?.toLowerCase() === "ollama" ? "ollama" : "openai";
+  process.env["LLM_PROVIDER"]?.toLowerCase() === "openai" ? "openai" : "ollama";
 
 export const OLLAMA_URL = (process.env["OLLAMA_URL"] ?? "http://localhost:11434").replace(
   /\/+$/,

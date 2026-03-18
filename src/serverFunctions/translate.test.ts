@@ -334,13 +334,10 @@ describe("translate handler", () => {
 });
 
 describe("translate handler (openai)", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
   beforeEach(async () => {
+    vi.restoreAllMocks();
     await loadTranslateModule("openai");
-  });
+  });  
 
   it("calls OpenAI-compatible API and returns translation", async () => {
     const mockResponse = {

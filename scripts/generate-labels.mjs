@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
 
-const LLM_PROVIDER = process.env.LLM_PROVIDER?.toLowerCase() === "ollama" ? "ollama" : "openai";
+const LLM_PROVIDER = process.env.LLM_PROVIDER?.toLowerCase() === "openai" ? "openai" : "ollama";
 const OLLAMA_URL = (process.env.OLLAMA_URL || "http://localhost:11434").replace(/\/+$/, "");
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL ||
   process.env.OLLAMA_URL ||
