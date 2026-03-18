@@ -155,8 +155,8 @@ export const translateStream = createServerFn({ method: "POST" })
             const { done, value } = await reader.read();
             if (done) break;
 
-            buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-
+            buffer += decoder.decode(value, { stream: true });
+            buffer = buffer.replace(/\r\n/g, "\n");
             let eventBoundary = buffer.indexOf("\n\n");
             while (eventBoundary !== -1) {
               const rawEvent = buffer.slice(0, eventBoundary);
