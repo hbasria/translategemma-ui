@@ -2,6 +2,6 @@ import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/
 
 const fetch = createStartHandler(defaultStreamHandler);
 
-export default {
-	fetch,
-};
+const serverEntry = Object.assign(fetch, { fetch });
+
+export default serverEntry;
